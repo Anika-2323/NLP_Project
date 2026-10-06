@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Traditional NLP vs BERT Arena</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    h2 { text-align: center; margin-bottom: 6px; }
+    p.subtitle { text-align: center; color: #64748b; margin-top: 0; }
+    textarea {
+      width: 100%;
+      height: 90px;
+      padding: 12px;
+      font-size: 15px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-sizing: border-box;
+      background: white;
+    }
+    .examples {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      font-size: 12px;
+      background: #e2e8f0;
+      padding: 5px 10px;
+      border-radius: 14px;
+      cursor: pointer;
+    }
+    .badge:hover { background: #cbd5e1; }
+    button {
+      display: block;
+      width: 100%;
+      margin-top: 15px;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+
+    /* Results Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 25px;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    }
+    .card h3 { margin-top: 0; font-size: 16px; color: #334155; }
+    .result-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 15px;
+      margin: 10px 0;
+    }
+    .pos { background: #dcfce7; color: #166534; }
+    .neg { background: #fee2e2; color: #991b1b; }
+    
+    /* Token Inspector Section */
+    .tokens-container {
+      background: white;
+      border: 1px solid #e2e8f0;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    .token-chip {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 4px 8px;
+      border-radius: 6px;
+      margin: 3px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    /* Comparison Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 25px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 14px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    th { background: #f8fafc; font-weight: 600; color: #475569; }
+  </style>
+</head>
+<body>
+
+  <h2>Traditional NLP vs. BERT Showdown</h2>
+  <p class="subtitle">Demonstrating context awareness, subword tokenization, and architecture differences.</p>
+
+  <textarea id="textInput" placeholder="Type a sentence with negations, sarcasm, or contrast..."></textarea>
+
+  <div class="examples">
+    <span style="font-size: 12px; align-self: center; color: #64748b;">Try presets:</span>
+    <span class="badge" onclick="setPreset('The movie was not good at all, completely ruined.')">Negation ("not good")</span>
+    <span class="badge" onclick="setPreset('I loved the cast, but the actual plot was atrocious.')">Contrast ("loved... but atrocious")</span>
+    <span class="badge" onclick="setPreset('Oh wonderful, another delayed train, just what I needed.')">Sarcasm ("wonderful... delayed")</span>
+  </div>
+
+  <button onclick="runShowdown()">Run Model Showdown</button>
+
+  <div id="outputSection" style="display: none;">
+    <!-- Head-to-Head Cards -->
+    <div class="grid">
+      <div class="card">
+        <h3>Traditional Model<br><small style="color: #64748b;">TF-IDF + Logistic Regression</small></h3>
+        <div id="tradLabel" class="result-badge"></div>
+        <p>Confidence: <strong id="tradConf"></strong>%</p>
+        <p>Inference Latency: <span id="tradLatency"></span> ms</p>
+      </div>
+
+      <div class="card" style="border-top: 4px solid #2563eb;">
+        <h3>Modern Transfer Learning<br><small style="color: #2563eb;">BERT Transformer Encoder</small></h3>
+        <div id="bertLabel" class="result-badge"></div>
+        <p>Confidence: <strong id="bertConf"></strong>%</p>
+        <p>Inference Latency: <span id="bertLatency"></span> ms</p>
+      </div>
+    </div>
+
+    <!-- Tokenization Inspector -->
+    <div class="tokens-container">
+      <h4 style="margin-top: 0; color: #334155;">Transformer WordPiece Subword Tokenization</h4>
+      <p style="font-size: 13px; color: #64748b; margin-top: 0;">Notice the special tokens <code>[CLS]</code> (sentence embedding) and <code>[SEP]</code> (boundary), plus subwords:</p>
+      <div id="tokensList"></div>
+    </div>
+
+    <!-- Technical Comparison Matrix -->
+    <table>
+      <thead>
+        <tr>
+          <th>Architectural Feature</th>
+          <th>Traditional NLP</th>
+          <th>BERT (Transformer Encoder)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Tokenization</strong></td>
+          <td id="tradTok">Word-level</td>
+          <td id="bertTok">WordPiece / Subword</td>
+        </tr>
+        <tr>
+          <td><strong>Context Understanding</strong></td>
+          <td>Zero (Bag of Words)</td>
+          <td>Bidirectional (Self-Attention)</td>
+        </tr>
+        <tr>
+          <td><strong>Out-Of-Vocabulary Handling</strong></td>
+          <td>Fails / Ignores unknown words</td>
+          <td>Breaks words into subwords (##)</td>
+        </tr>
+        <tr>
+          <td><strong>Knowledge Transfer</strong></td>
+          <td>Trained only on target task</td>
+          <td>Pre-trained on billions of words</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function setPreset(text) {
+      document.getElementById("textInput").value = text;
+      runShowdown();
+    }
+
+    async function runShowdown() {
+      const text = document.getElementById("textInput").value.trim();
+      if (!text) {
+        alert("Please enter a sentence!");
+        return;
+      }
+
+      const res = await fetch("/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text })
+      });
+
+      const data = await res.json();
+      document.getElementById("outputSection").style.display = "block";
+
+      // Traditional Card
+      const tradLabel = document.getElementById("tradLabel");
+      tradLabel.innerText = data.traditional.label;
+      tradLabel.className = "result-badge " + (data.traditional.label === "POSITIVE" ? "pos" : "neg");
+      document.getElementById("tradConf").innerText = data.traditional.confidence;
+      document.getElementById("tradLatency").innerText = data.traditional.latency_ms;
+
+      // BERT Card
+      const bertLabel = document.getElementById("bertLabel");
+      bertLabel.innerText = data.bert.label;
+      bertLabel.className = "result-badge " + (data.bert.label === "POSITIVE" ? "pos" : "neg");
+      document.getElementById("bertConf").innerText = data.bert.confidence;
+      document.getElementById("bertLatency").innerText = data.bert.latency_ms;
+
+      // Render Tokens
+      const tokenContainer = document.getElementById("tokensList");
+      tokenContainer.innerHTML = "";
+      data.tokens.forEach(tok => {
+        const span = document.createElement("span");
+        span.className = "token-chip";
+        span.innerText = tok;
+        tokenContainer.appendChild(span);
+      });
+
+      // Update Table details
+      document.getElementById("tradTok").innerText = data.traditional.tokenization;
+      document.getElementById("bertTok").innerText = data.bert.tokenization;
+    }
+  </script>
+
+</body>
+</html>
